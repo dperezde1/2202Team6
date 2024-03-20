@@ -1,3 +1,5 @@
+// final commit
+
 #define DEBUG_ENCODER_COUNT  1
 
 #include <Arduino.h>
@@ -47,16 +49,18 @@ unsigned long displayTime;                                                     /
 unsigned long previousMicros;                                                  // last microsecond count
 unsigned long currentMicros;                                                   // current microsecond count
 const int cCountsRev = 1096;                                                   
-const float circum = 13.51;                                                    // wheel circumference
+const float circum = 13.8;                                                    // wheel circumference
 const float cmPerPulse = circum/ (float)cCountsRev;                            // cm per pulse
-// Path
-const float targetPulses1 = (200 / cmPerPulse);                                // forward
-const float targetPulses2 = (12.5 / cmPerPulse);                                // turn right
-const float targetPulses3 = (180 / cmPerPulse);                                // forward
-const float targetPulses4 = (12.5 / cmPerPulse);                                // turn right
-const float targetPulses5 = (20 / cmPerPulse);                                // forward
-const float targetPulses6 = (12.5 / cmPerPulse);                                // turn right
-const float targetPulses7 = (170 / cmPerPulse);                                // forward
+// Make a square
+const float targetPulses1 = (120 / cmPerPulse);                                // forward
+const float targetPulses2 = (11 / cmPerPulse);                                // turn right
+const float targetPulses3 = (120 / cmPerPulse);                                // forward
+const float targetPulses4 = (11 / cmPerPulse);                                // turn right
+const float targetPulses5 = (100 / cmPerPulse);                                // forward
+const float targetPulses6 = (11 / cmPerPulse);                                // turn right
+const float targetPulses7 = (43 / cmPerPulse);                                // forward
+const float targetPulses8 = (12 / cmPerPulse);                                // turn right
+const float targetPulses9 = (10 / cmPerPulse);                                // reverse for style
 
 
 int currentPulsesLeft = 0;
@@ -264,7 +268,7 @@ void loop() {
                           currentPulsesRight = abs(RightEncoder.lRawEncoderCount);
                           averagePulses = (currentPulsesLeft + currentPulsesRight)/2;
 
-                          Bot.Right("D1", leftDriveSpeed, rightDriveSpeed);    // drive ID, left speed, right speed
+                          Bot.Right("D1", 200, 200);    // drive ID, left speed, right speed
                           if (averagePulses >= targetPulses2){
                             LeftEncoder.clearEncoder();
                             RightEncoder.clearEncoder();
@@ -302,7 +306,7 @@ void loop() {
                           currentPulsesRight = abs(RightEncoder.lRawEncoderCount);
                           averagePulses = (currentPulsesLeft + currentPulsesRight)/2;
 
-                          Bot.Right("D1", leftDriveSpeed, rightDriveSpeed);    // drive ID, left speed, right speed
+                          Bot.Right("D1", 200, 200);    // drive ID, left speed, right speed
                           if (averagePulses >= targetPulses2){
                             LeftEncoder.clearEncoder();
                             RightEncoder.clearEncoder();
@@ -340,7 +344,7 @@ void loop() {
                           currentPulsesRight = abs(RightEncoder.lRawEncoderCount);
                           averagePulses = (currentPulsesLeft + currentPulsesRight)/2;
 
-                          Bot.Right("D1", leftDriveSpeed, rightDriveSpeed);    // drive ID, left speed, right speed
+                          Bot.Right("D1", 200, 200);    // drive ID, left speed, right speed
                           if (averagePulses >= targetPulses6){
                             LeftEncoder.clearEncoder();
                             RightEncoder.clearEncoder();
@@ -362,15 +366,52 @@ void loop() {
                           Serial.print("\n");
 
 
-                          if (averagePulses >= targetPulses1) {
+                          if (averagePulses >= targetPulses7) {
                             LeftEncoder.clearEncoder();
                             RightEncoder.clearEncoder();
-                            driveIndex = 0;                                       // next state: stop
+                            driveIndex++;                                       // next state: stop
                           }
                           
                           break;
       
+                        case 8: // Turn right
+                          
+                          LeftEncoder.getEncoderRawCount();                            // read left encoder count 
+                          RightEncoder.getEncoderRawCount(); 
+                          currentPulsesLeft = abs(LeftEncoder.lRawEncoderCount);
+                          currentPulsesRight = abs(RightEncoder.lRawEncoderCount);
+                          averagePulses = (currentPulsesLeft + currentPulsesRight)/2;
+
+                          Bot.Right("D1", 200, 200);    // drive ID, left speed, right speed
+                          if (averagePulses >= targetPulses8){
+                            LeftEncoder.clearEncoder();
+                            RightEncoder.clearEncoder();
+                            driveIndex++;                                     // next state: forward
+                          }
+                                                               
+                          break;
                         
+                        case 9: // Reverse for style
+                          LeftEncoder.getEncoderRawCount();                            // read left encoder count 
+                          RightEncoder.getEncoderRawCount(); 
+                          // determine the average pulses by averaging both motor encoder counts
+                          currentPulsesLeft = abs(LeftEncoder.lRawEncoderCount);
+                          currentPulsesRight = abs(RightEncoder.lRawEncoderCount);
+                          averagePulses = (currentPulsesLeft + currentPulsesRight)/2;
+                          
+                          Bot.Reverse("D1", 200, 200); // drive ID, left speed, right speed
+                          Serial.print("Average Pulses = ");
+                          Serial.print(averagePulses);
+                          Serial.print("\n");
+
+
+                          if (averagePulses >= targetPulses9) {
+                            LeftEncoder.clearEncoder();
+                            RightEncoder.clearEncoder();
+                            robotModeIndex=0;                                       // next state: turn right
+                          }
+                          
+                          break;
                      }
                   
                }
@@ -404,6 +445,4 @@ void Indicator() {
   SmartLEDs.setPixelColor(0, modeIndicator[robotModeIndex]);                  // set pixel colors to = mode 
   SmartLEDs.show();                                                           // send the updated pixel colors to the hardware
 }
-
-
 

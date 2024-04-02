@@ -8,7 +8,9 @@
 
 // Function declarations
 void Indicator();                                                              // for mode/heartbeat on Smart LED
-
+void scoopStop();
+void scoopForward();
+void scoopReverse();
 // Port pin constants
 #define LEFT_MOTOR_A        35                                                 // GPIO35 pin 28 (J35) Motor 1 A
 #define LEFT_MOTOR_B        36                                                 // GPIO36 pin 29 (J36) Motor 1 B
@@ -23,8 +25,15 @@ void Indicator();                                                              /
 #define POT_R1              1                                                  // when DIP Switch S1-3 is on, Analog AD0 (pin 39) GPIO1 is connected to Poteniometer R1
 #define SMART_LED           21                                                 // when DIP Switch S1-4 is on, Smart LED is connected to pin 23 GPIO21 (J21)
 #define SMART_LED_COUNT     1                                                  // number of SMART LEDs in use
-//just a test commit
-
+// Scoop pin additions
+#define SCOOP_MOTOR_A       39
+#define SCOOP_MOTOR_B       40
+#define SCOOP_ENCODER_A     5
+#define SCOOP_ENCODER_B     6   
+//Servo Pins
+#define LEFT_SERVO          41    
+#define RIGHT_SERVO         42    
+#define SCOOP_MOTOR_SPEED 130
 
 // Constants
 const int cDisplayUpdate = 100;                                                // update interval for Smart LED in milliseconds
@@ -52,15 +61,28 @@ unsigned long currentMicros;                                                   /
 const int cCountsRev = 1096;                                                   
 const float circum = 13.8;                                                    // wheel circumference
 const float cmPerPulse = circum/ (float)cCountsRev;                            // cm per pulse
+
+// Scoop Variables
+unsigned char scoopDriveSpeed;
+// Define an array where each index corresponds to a driveIndex, and the value indicates the scoop direction (true for forward, false for reverse)
+boolean scoopDirections[] = {true, true, true, true, true, true, true, true, true, false};
+
+//Servo Variables
+
+const int leftServoUp =400;                                               
+const int leftServoDown = 1800;          //S2                                 
+const int rightServoUp = 2000;                                                 
+const int rightServoDown = 1200;           //S1                                     
+
 // Make a square
-const float targetPulses1 = (120 / cmPerPulse);                                // forward
-const float targetPulses2 = (11 / cmPerPulse);                                // turn right
-const float targetPulses3 = (120 / cmPerPulse);                                // forward
-const float targetPulses4 = (11 / cmPerPulse);                                // turn right
-const float targetPulses5 = (100 / cmPerPulse);                                // forward
-const float targetPulses6 = (11 / cmPerPulse);                                // turn right
-const float targetPulses7 = (43 / cmPerPulse);                                // forward
-const float targetPulses8 = (12 / cmPerPulse);                                // turn right
+const float targetPulses1 = (60 / cmPerPulse);                                // forward
+const float targetPulses2 = (11.5 / cmPerPulse);                                // turn left
+const float targetPulses3 = (30 / cmPerPulse);                                // forward
+const float targetPulses4 = (11.7 / cmPerPulse);                                // turn left
+const float targetPulses5 = (50 / cmPerPulse);                                // forward
+const float targetPulses6 = (11.9 / cmPerPulse);                                // turn left
+const float targetPulses7 = (30 / cmPerPulse);                                // forward
+const float targetPulses8 = (12.7 / cmPerPulse);                                // turn left
 const float targetPulses9 = (10 / cmPerPulse);                                // reverse for style
 
 
@@ -111,8 +133,19 @@ void setup() {
    Bot.driveBegin("D1", LEFT_MOTOR_A, LEFT_MOTOR_B, RIGHT_MOTOR_A, RIGHT_MOTOR_B); // set up motors as Drive 1
    LeftEncoder.Begin(ENCODER_LEFT_A, ENCODER_LEFT_B, &Bot.iLeftMotorRunning ); // set up left encoder
    RightEncoder.Begin(ENCODER_RIGHT_A, ENCODER_RIGHT_B, &Bot.iRightMotorRunning ); // set up right encoder
+   Bot.servoBegin("S1", LEFT_SERVO);                                           // set up claw servo
+   Bot.servoBegin("S2", RIGHT_SERVO);                                       // set up shoulder servo
  
-  
+
+
+  //Set up scoop
+  pinMode(SCOOP_MOTOR_A, OUTPUT);
+  pinMode(SCOOP_MOTOR_B, OUTPUT);
+
+
+
+
+
    // Set up SmartLED
    SmartLEDs.begin();                                                          // initialize smart LEDs object (REQUIRED)
    SmartLEDs.clear();                                                          // clear pixel
@@ -203,6 +236,7 @@ void loop() {
             LeftEncoder.clearEncoder();                                        // clear encoder counts
             RightEncoder.clearEncoder();
             driveIndex = 0;                                                    // reset drive index
+            scoopStop();
             //timeUp2sec = false;                                                // reset 2 second timer
             break;
 
@@ -230,9 +264,16 @@ void loop() {
                   Serial.print("\n");
                }
       #endif
-               if (motorsEnabled) {                                            // run motors only if enabled
+               if (motorsEnabled) {  //run motors only if enabled
+                if (scoopDirections[driveIndex]) {
+                  scoopForward();
+                } else {
+                  scoopReverse();
+                }
                      switch(driveIndex) {                                      // cycle through drive states
                         case 0: // Stop
+                          Bot.ToPosition("S1", leftServoUp);
+                          Bot.ToPosition("S2", rightServoUp);
                           LeftEncoder.clearEncoder();
                           RightEncoder.clearEncoder();
                           Bot.Stop("D1");                                     // drive ID
@@ -251,6 +292,7 @@ void loop() {
                           Serial.print("Average Pulses = ");
                           Serial.print(averagePulses);
                           Serial.print("\n");
+                          
 
 
                           if (averagePulses >= targetPulses1) {
@@ -261,7 +303,7 @@ void loop() {
                           
                           break;
 
-                        case 2: // Turn right
+                        case 2: // Turn left
                           
                           LeftEncoder.getEncoderRawCount();                            // read left encoder count 
                           RightEncoder.getEncoderRawCount(); 
@@ -269,7 +311,7 @@ void loop() {
                           currentPulsesRight = abs(RightEncoder.lRawEncoderCount);
                           averagePulses = (currentPulsesLeft + currentPulsesRight)/2;
 
-                          Bot.Right("D1", 200, 200);    // drive ID, left speed, right speed
+                          Bot.Left("D1", 200, 200);    // drive ID, left speed, right speed
                           if (averagePulses >= targetPulses2){
                             LeftEncoder.clearEncoder();
                             RightEncoder.clearEncoder();
@@ -299,7 +341,7 @@ void loop() {
                           
                           break;
 
-                        case 4: // Turn right
+                        case 4: // Turn left
                           
                           LeftEncoder.getEncoderRawCount();                            // read left encoder count 
                           RightEncoder.getEncoderRawCount(); 
@@ -307,7 +349,7 @@ void loop() {
                           currentPulsesRight = abs(RightEncoder.lRawEncoderCount);
                           averagePulses = (currentPulsesLeft + currentPulsesRight)/2;
 
-                          Bot.Right("D1", 200, 200);    // drive ID, left speed, right speed
+                          Bot.Left("D1", 200, 200);    // drive ID, left speed, right speed
                           if (averagePulses >= targetPulses2){
                             LeftEncoder.clearEncoder();
                             RightEncoder.clearEncoder();
@@ -337,7 +379,7 @@ void loop() {
                           
                           break;
 
-                        case 6: // Turn right
+                        case 6: // Turn left
                           
                           LeftEncoder.getEncoderRawCount();                            // read left encoder count 
                           RightEncoder.getEncoderRawCount(); 
@@ -345,7 +387,7 @@ void loop() {
                           currentPulsesRight = abs(RightEncoder.lRawEncoderCount);
                           averagePulses = (currentPulsesLeft + currentPulsesRight)/2;
 
-                          Bot.Right("D1", 200, 200);    // drive ID, left speed, right speed
+                          Bot.Left("D1", 200, 200);    // drive ID, left speed, right speed
                           if (averagePulses >= targetPulses6){
                             LeftEncoder.clearEncoder();
                             RightEncoder.clearEncoder();
@@ -375,7 +417,7 @@ void loop() {
                           
                           break;
       
-                        case 8: // Turn right
+                        case 8: // Turn left
                           
                           LeftEncoder.getEncoderRawCount();                            // read left encoder count 
                           RightEncoder.getEncoderRawCount(); 
@@ -383,7 +425,7 @@ void loop() {
                           currentPulsesRight = abs(RightEncoder.lRawEncoderCount);
                           averagePulses = (currentPulsesLeft + currentPulsesRight)/2;
 
-                          Bot.Right("D1", 200, 200);    // drive ID, left speed, right speed
+                          Bot.Left("D1", 200, 200);    // drive ID, left speed, right speed
                           if (averagePulses >= targetPulses8){
                             LeftEncoder.clearEncoder();
                             RightEncoder.clearEncoder();
@@ -409,10 +451,21 @@ void loop() {
                           if (averagePulses >= targetPulses9) {
                             LeftEncoder.clearEncoder();
                             RightEncoder.clearEncoder();
-                            robotModeIndex=0;                                       // next state: turn right
+                            driveIndex++;                                       // next state: turn right
                           }
                           
                           break;
+                        case 10:
+                          Serial.print("starting case 10");
+                          Bot.Stop("D1");
+                          Bot.ToPosition("S1", leftServoDown);                             // raise claw slightly up
+                          Bot.ToPosition("S2", rightServoDown);
+                          Serial.print("end of servo movement");
+                          LeftEncoder.clearEncoder();
+                          RightEncoder.clearEncoder();
+                         
+                          
+                          robotModeIndex = 0;
                      }
                   
                }
@@ -445,5 +498,22 @@ void loop() {
 void Indicator() {
   SmartLEDs.setPixelColor(0, modeIndicator[robotModeIndex]);                  // set pixel colors to = mode 
   SmartLEDs.show();                                                           // send the updated pixel colors to the hardware
+}
+
+//Scoop functions
+void scoopForward() {
+  analogWrite(SCOOP_MOTOR_A, SCOOP_MOTOR_SPEED); // Set the speed for forward direction
+  digitalWrite(SCOOP_MOTOR_B, LOW);              // Ensure the other pin is off
+}
+
+void scoopReverse() {
+  digitalWrite(SCOOP_MOTOR_A, LOW);              // Ensure one pin is off
+  analogWrite(SCOOP_MOTOR_B, SCOOP_MOTOR_SPEED); // Set the speed for reverse direction
+}
+
+void scoopStop() {
+  // Stop the motor by writing a low signal to both control pins
+  digitalWrite(SCOOP_MOTOR_A, LOW);
+  digitalWrite(SCOOP_MOTOR_B, LOW);
 }
 

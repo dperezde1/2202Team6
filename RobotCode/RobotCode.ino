@@ -35,6 +35,7 @@ void scoopReverse();
 #define RIGHT_SERVO         42    
 #define SCOOP_MOTOR_SPEED 130
 
+
 // Constants
 const int cDisplayUpdate = 100;                                                // update interval for Smart LED in milliseconds
 const int cPWMRes = 8;                                                         // bit resolution for PWM
@@ -65,14 +66,29 @@ const float cmPerPulse = circum/ (float)cCountsRev;                            /
 // Scoop Variables
 unsigned char scoopDriveSpeed;
 // Define an array where each index corresponds to a driveIndex, and the value indicates the scoop direction (true for forward, false for reverse)
-boolean scoopDirections[] = {true, true, true, true, true, true, true, true, true, false};
+boolean scoopDirections[] = {true,true, true, true, true, true, true, true, true, true, false,false,false,false};
 
 //Servo Variables
 
 const int leftServoUp =400;                                               
-const int leftServoDown = 1800;          //S2                                 
+const int leftServoDown = 1350;          //1350                               
 const int rightServoUp = 2000;                                                 
-const int rightServoDown = 1200;           //S1                                     
+const int rightServoDown = 1690;           //1690           
+
+//Case 10 vars
+unsigned long case10StartTime = 0; // Variable to store the start time of case 10
+boolean case10DelayStarted = false; // Flag to indicate whether the delay has started
+
+//Case 11
+unsigned long case11StartTime = 0;
+boolean case11DelayStarted = false;
+
+//case 12
+unsigned long case12StartTime = 0;
+boolean case12DelayStarted = false;
+int case12To11LoopCount = 0; // Tracks the number of loops from case 12 to case 11
+
+
 
 // Make a square
 const float targetPulses1 = (60 / cmPerPulse);                                // forward
@@ -265,13 +281,14 @@ void loop() {
                }
       #endif
                if (motorsEnabled) {  //run motors only if enabled
-                if (scoopDirections[driveIndex]) {
+               /* if (scoopDirections[driveIndex]) {
                   scoopForward();
                 } else {
                   scoopReverse();
-                }
+                }*/
                      switch(driveIndex) {                                      // cycle through drive states
                         case 0: // Stop
+                          scoopStop();
                           Bot.ToPosition("S1", leftServoUp);
                           Bot.ToPosition("S2", rightServoUp);
                           LeftEncoder.clearEncoder();
@@ -281,6 +298,7 @@ void loop() {
                           break;
 
                         case 1: // Drive forward
+                          scoopForward();
                           LeftEncoder.getEncoderRawCount();                            // read left encoder count 
                           RightEncoder.getEncoderRawCount(); 
                           // determine the average pulses by averaging both motor encoder counts
@@ -456,16 +474,71 @@ void loop() {
                           
                           break;
                         case 10:
-                          Serial.print("starting case 10");
-                          Bot.Stop("D1");
-                          Bot.ToPosition("S1", leftServoDown);                             // raise claw slightly up
-                          Bot.ToPosition("S2", rightServoDown);
-                          Serial.print("end of servo movement");
-                          LeftEncoder.clearEncoder();
-                          RightEncoder.clearEncoder();
-                         
-                          
-                          robotModeIndex = 0;
+                            if (!case10DelayStarted) {
+                              Serial.print("starting case 10");
+                              Bot.Stop("D1");
+                              Bot.ToPosition("S1", leftServoDown);                             
+                              Bot.ToPosition("S2", rightServoDown);
+                              scoopReverse();
+                              Serial.print("end of servo movement");
+                              LeftEncoder.clearEncoder();
+                              RightEncoder.clearEncoder();
+
+                              case10StartTime = millis(); // Save the start time for the delay
+                              case10DelayStarted = true; // Mark the delay as started
+                            }
+
+                            if (millis() - case10StartTime >= 3000) { // Check if 3 seconds have passed
+                              // Actions to be performed after the 3-second delay
+                            
+                              case10DelayStarted = false;
+                              driveIndex++; // Reset the delay flag for the next time this case runs
+                            }
+                            break;
+                        case 11:
+                            if (!case11DelayStarted) {
+                              Serial.println("Starting case 11: Stopping scoop and moving servos.");
+                              scoopStop(); // Stop the scoop
+                              Bot.ToPosition("S1", leftServoUp); // Move servos to up position
+                              Bot.ToPosition("S2", rightServoUp);
+                              
+                              case11StartTime = millis();
+                              case11DelayStarted = true;
+                            }
+
+                            // Check if 500 milliseconds have passed to move servos back down
+                            if (millis() - case11StartTime >= 300 && case11DelayStarted) {
+                              Bot.ToPosition("S1", leftServoDown); // Move servos back to down position
+                              Bot.ToPosition("S2", rightServoDown);
+
+                              Serial.println("Case 11 complete: Servos moved back down.");
+                              case11DelayStarted = false; // Reset for next time case 11 is entered
+                              scoopReverse();
+                              driveIndex++; // Optionally, reset to default case or navigate to another case
+                            }
+                            break;
+                        case 12:
+                            if (!case12DelayStarted) {
+                              Serial.println("Starting case 12: Delay for 3 seconds.");
+                              case12StartTime = millis(); // Record start time
+                              case12DelayStarted = true;
+                            }
+
+                            if (millis() - case12StartTime >= 3000) { // Check if 3 seconds have passed
+                              case12To11LoopCount++; // Increment loop count
+                              case12DelayStarted = false; // Reset delay flag for next iteration
+
+                              if (case12To11LoopCount < 3) {
+                                Serial.println("Repeating case 11.");
+                                driveIndex = 11; // Go back to case 11
+                              } else {
+                                Serial.println("Completed 3 iterations, going to robotModeIndex = 0.");
+                                robotModeIndex = 0; // Go to default case after 3 iterations
+                                case12To11LoopCount = 0; // Reset loop count for next time
+                              }
+                            }
+                            break;
+
                      }
                   
                }
@@ -474,6 +547,7 @@ void loop() {
                Bot.Stop("D1");  
             }
             break;
+          scoopStop();
           robotModeIndex = 0;           // to red mode
             
             break;
@@ -508,7 +582,7 @@ void scoopForward() {
 
 void scoopReverse() {
   digitalWrite(SCOOP_MOTOR_A, LOW);              // Ensure one pin is off
-  analogWrite(SCOOP_MOTOR_B, SCOOP_MOTOR_SPEED); // Set the speed for reverse direction
+  digitalWrite(SCOOP_MOTOR_B, HIGH); // Set the speed for reverse direction
 }
 
 void scoopStop() {

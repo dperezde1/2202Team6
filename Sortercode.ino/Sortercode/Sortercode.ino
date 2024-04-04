@@ -216,9 +216,9 @@ void loop() {
   }
 
   // Check if it's time to actuate the servo after detection
-  if (colorConditionMet && millis() - lastColorDetectedTime > 2000 && !servoMoving) {
+  if (colorConditionMet && millis() - lastColorDetectedTime > 2100 && !servoMoving) {
     // Actuate the servo
-    Bot.ToPosition("S1", 1000); // Assuming this is the "swing" position
+    Bot.ToPosition("S1", 1700); // Assuming this is the "swing" position
     servoMoving = true;
     lastServoMoveTime = millis();
     colorConditionMet = false; // Reset the condition
@@ -226,7 +226,7 @@ void loop() {
 
   // Return the servo to its initial position
   if (servoMoving && millis() - lastServoMoveTime > 250) { // Adjust time as needed
-    Bot.ToPosition("S1", 2000); // Return position
+    Bot.ToPosition("S1", 1000); // Return position
     // Re-enable color detection slightly before the servo fully returns to allow for back-to-back detection
     if (millis() - lastServoMoveTime > 100) { // Adjust this timing based on your servo's speed and the typical object spacing
       servoMoving = false;

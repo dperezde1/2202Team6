@@ -66,12 +66,12 @@ const float cmPerPulse = circum/ (float)cCountsRev;                            /
 // Scoop Variables
 unsigned char scoopDriveSpeed;
 // Define an array where each index corresponds to a driveIndex, and the value indicates the scoop direction (true for forward, false for reverse)
-boolean scoopDirections[] = {true,true, true, true, true, true, true, true, true, true, false,false,false,false};
+//boolean scoopDirections[] = {true,true, true, true, true, true, true, true, true, true, false,false,false,false};
 
 //Servo Variables
 
 const int leftServoUp =400;                                               
-const int leftServoDown = 1350;          //1350                               
+const int leftServoDown = 1470;          //1350                               
 const int rightServoUp = 2000;                                                 
 const int rightServoDown = 1690;           //1690           
 
@@ -91,15 +91,15 @@ int case12To11LoopCount = 0; // Tracks the number of loops from case 12 to case 
 
 
 // Make a square
-const float targetPulses1 = (60 / cmPerPulse);                                // forward
-const float targetPulses2 = (11.5 / cmPerPulse);                                // turn left
-const float targetPulses3 = (30 / cmPerPulse);                                // forward
-const float targetPulses4 = (11.7 / cmPerPulse);                                // turn left
-const float targetPulses5 = (50 / cmPerPulse);                                // forward
+const float targetPulses1 = (100 / cmPerPulse);                                // forward
+const float targetPulses2 = (11.9 / cmPerPulse);                                // turn left
+const float targetPulses3 = (110 / cmPerPulse);                                // forward  180 for demo
+const float targetPulses4 = (12 / cmPerPulse);                                // turn left
+const float targetPulses5 = (80 / cmPerPulse);                                // forward
 const float targetPulses6 = (11.9 / cmPerPulse);                                // turn left
-const float targetPulses7 = (30 / cmPerPulse);                                // forward
-const float targetPulses8 = (12.7 / cmPerPulse);                                // turn left
-const float targetPulses9 = (10 / cmPerPulse);                                // reverse for style
+const float targetPulses7 = (110 / cmPerPulse);                                // forward
+const float targetPulses8 = (12.1 / cmPerPulse);                                // turn right
+const float targetPulses9 = (15 / cmPerPulse);                                // forward
 
 
 int currentPulsesLeft = 0;
@@ -435,7 +435,7 @@ void loop() {
                           
                           break;
       
-                        case 8: // Turn left
+                        case 8: // Turn right
                           
                           LeftEncoder.getEncoderRawCount();                            // read left encoder count 
                           RightEncoder.getEncoderRawCount(); 
@@ -443,7 +443,7 @@ void loop() {
                           currentPulsesRight = abs(RightEncoder.lRawEncoderCount);
                           averagePulses = (currentPulsesLeft + currentPulsesRight)/2;
 
-                          Bot.Left("D1", 200, 200);    // drive ID, left speed, right speed
+                          Bot.Right("D1", 200, 200);    // drive ID, left speed, right speed
                           if (averagePulses >= targetPulses8){
                             LeftEncoder.clearEncoder();
                             RightEncoder.clearEncoder();
@@ -452,15 +452,15 @@ void loop() {
                                                                
                           break;
                         
-                        case 9: // Reverse for style
+                        case 9: // Drive forward
                           LeftEncoder.getEncoderRawCount();                            // read left encoder count 
                           RightEncoder.getEncoderRawCount(); 
                           // determine the average pulses by averaging both motor encoder counts
                           currentPulsesLeft = abs(LeftEncoder.lRawEncoderCount);
                           currentPulsesRight = abs(RightEncoder.lRawEncoderCount);
                           averagePulses = (currentPulsesLeft + currentPulsesRight)/2;
-                          
-                          Bot.Reverse("D1", 200, 200); // drive ID, left speed, right speed
+                          Bot.ToPosition("S1", leftServoDown);
+                          Bot.Forward("D1", 200, 200); // drive ID, left speed, right speed
                           Serial.print("Average Pulses = ");
                           Serial.print(averagePulses);
                           Serial.print("\n");
@@ -481,8 +481,7 @@ void loop() {
                               Bot.ToPosition("S2", rightServoDown);
                               scoopReverse();
                               Serial.print("end of servo movement");
-                              LeftEncoder.clearEncoder();
-                              RightEncoder.clearEncoder();
+                              
 
                               case10StartTime = millis(); // Save the start time for the delay
                               case10DelayStarted = true; // Mark the delay as started
@@ -506,7 +505,7 @@ void loop() {
                               case11DelayStarted = true;
                             }
 
-                            // Check if 500 milliseconds have passed to move servos back down
+                            // Check if 300 milliseconds have passed to move servos back down
                             if (millis() - case11StartTime >= 300 && case11DelayStarted) {
                               Bot.ToPosition("S1", leftServoDown); // Move servos back to down position
                               Bot.ToPosition("S2", rightServoDown);
@@ -528,11 +527,11 @@ void loop() {
                               case12To11LoopCount++; // Increment loop count
                               case12DelayStarted = false; // Reset delay flag for next iteration
 
-                              if (case12To11LoopCount < 3) {
+                              if (case12To11LoopCount < 5) {
                                 Serial.println("Repeating case 11.");
                                 driveIndex = 11; // Go back to case 11
                               } else {
-                                Serial.println("Completed 3 iterations, going to robotModeIndex = 0.");
+                                Serial.println("Completed 5 iterations, going to robotModeIndex = 0.");
                                 robotModeIndex = 0; // Go to default case after 3 iterations
                                 case12To11LoopCount = 0; // Reset loop count for next time
                               }
